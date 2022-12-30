@@ -6,14 +6,14 @@
 #define EMPTY -1
 #define BLACK 0
 #define RED 1
-#define INF 99999
+#define INF 9999
 #define MAX_DEPTH 4
 #define S_WIN 100
 
 void minimizerTurn(int board[6][7], int);
 void maximizerTurn(int board[6][7], int);
 int findBestMove(int board[6][7], int);
-int miniMax(int tempBoard[6][7], int, bool, int, int, int, int);
+int miniMax(int tempBoard[6][7], int, bool, int, int, int);
 int scoreOfBoard(int board[6][7], int);
 int winningSide(int board[6][7]);
 int checkForDirectionStreak(int board[6][7], int, int *, int, int);
@@ -40,7 +40,6 @@ int main()
     while (1)
     {
         minimizerTurn(board, !mySide);
-        printBoard(board);
         int winner = winningSide(board);
         if (winner == BLACK)
         {
@@ -53,8 +52,8 @@ int main()
             break;
         }
         maximizerTurn(board, mySide);
-        printf("BOT:\n");
         printBoard(board);
+        printf("%d\n", scoreOfBoard(board, mySide));
         winner = winningSide(board);
         if (winner == BLACK)
         {
@@ -91,27 +90,35 @@ int findBestMove(int board[6][7], int side)
 {
     int bestMoveIndex = 0;
     int bestMoveScore = -1 * INF;
-    for (int j = 0; j < 7; j++)
+    int alpha = -1 * INF, c = 0;
+    while (c < 7)
     {
         int tempBoard[6][7];
         copyBoard(board, tempBoard);
-        int score = miniMax(tempBoard, side, true, 0, j, -1 * INF, INF);
+        int changedCellHeight = findHeight(tempBoard, c);
+        tempBoard[changedCellHeight][c] = side;
+        int score = miniMax(tempBoard, side, false, 0, alpha, INF);
+        tempBoard[changedCellHeight][c] = EMPTY;
+        printf("BMS: %d\tBMI: %d\tMAX %d: %d\n", bestMoveScore, bestMoveIndex, c, score);
         if (bestMoveScore < score)
         {
             bestMoveScore = score;
-            bestMoveIndex = j;
+            alpha = score;
+            bestMoveIndex = c;
         }
+        c++;
     }
     return bestMoveIndex;
 }
 
-int miniMax(int tempBoard[6][7], int side, bool isMaximizer, int depth, int column, int alpha, int beta)
+int miniMax(int tempBoard[6][7], int side, bool isMaximizer, int depth, int alpha, int beta)
 {
     if (depth == MAX_DEPTH)
         return scoreOfBoard(tempBoard, side);
-    if (winningSide(tempBoard) == side)
+    int winner = winningSide(tempBoard);
+    if (winner == side)
         return S_WIN;
-    else if (winningSide(tempBoard) == !side)
+    else if (winner == !side)
         return -1 * S_WIN;
     int bestValue;
     if (isMaximizer)
@@ -121,8 +128,9 @@ int miniMax(int tempBoard[6][7], int side, bool isMaximizer, int depth, int colu
         {
             int changedCellHeight = findHeight(tempBoard, j);
             tempBoard[changedCellHeight][j] = side;
-            int score = miniMax(tempBoard, side, false, depth + 1, j, alpha, beta);
+            int score = miniMax(tempBoard, side, false, depth + 1, alpha, beta);
             tempBoard[changedCellHeight][j] = EMPTY;
+            // printf("{%d: %d} ", j, score);
             bestValue = max(bestValue, score);
             alpha = max(bestValue, alpha);
             if (alpha >= beta)
@@ -135,9 +143,10 @@ int miniMax(int tempBoard[6][7], int side, bool isMaximizer, int depth, int colu
         for (int j = 0; j < 7; j++)
         {
             int changedCellHeight = findHeight(tempBoard, j);
-            tempBoard[changedCellHeight][j] = side;
-            int score = miniMax(tempBoard, side, true, depth + 1, j, alpha, beta);
+            tempBoard[changedCellHeight][j] = !side;
+            int score = miniMax(tempBoard, side, true, depth + 1, alpha, beta);
             tempBoard[changedCellHeight][j] = EMPTY;
+            // printf("[%d: %d] ", j, score);
             bestValue = min(bestValue, score);
             beta = min(bestValue, beta);
             if (alpha >= beta)
@@ -155,7 +164,39 @@ int scoreOfBoard(int board[6][7], int side)
         return S_WIN;
     else if (result == !side)
         return -1 * S_WIN;
-    // Check for double cells
+    // Check for double cells and add points for centerness
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 7; j++)
+        {
+            if (board[i][j] != EMPTY)
+            {
+                // centerness
+                int addition = min(6 - j, j);
+                if (board[i][j] == !side)
+                    addition *= -1;
+                score += addition;
+                // check for double
+                for (int dir = 1; dir <= 4; dir++)
+                {
+                    int additionToScore = 0;
+                    int blockedState = 0;
+                    int streak = checkForDirectionStreak(board, dir, &blockedState, i, j);
+                    if (streak >= 2)
+                    {
+                        if (blockedState == 0)
+                            additionToScore = 10;
+                        else if (blockedState == 1)
+                            additionToScore = 5;
+                    }
+                    if (board[i][j] == !side)
+                        additionToScore *= -1;
+                    score += additionToScore;
+                }
+            }
+        }
+    }
+    // Add points for centerness
     for (int i = 0; i < 6; i++)
     {
         for (int j = 0; j < 7; j++)
@@ -170,9 +211,9 @@ int scoreOfBoard(int board[6][7], int side)
                     if (streak >= 2)
                     {
                         if (blockedState == 0)
-                            additionToScore = 4;
+                            additionToScore = 8;
                         else if (blockedState == 1)
-                            additionToScore = 2;
+                            additionToScore = 4;
                     }
                     if (board[i][j] == !side)
                         additionToScore *= -1;
@@ -233,19 +274,19 @@ int checkForDirectionStreak(int board[6][7], int direction, int *blockedState, i
         }
         if (board[i][j] == EMPTY)
         {
-            //Check if the second front addition is blocked on double streaks with one blocked side
-            if(*blockedState == 1 && streak == 2)
+            // Check if the second front addition is blocked on double streaks with one blocked side
+            if (*blockedState == 1 && streak == 2)
             {
                 i += iAddition;
                 j += jAddition;
-                if((i < 0 || j > 6 || j < 0 || board[i][j] == !side))
+                if ((i < 0 || j > 6 || j < 0 || board[i][j] == !side))
                     *blockedState = 2;
             }
             break;
         }
     }
-    //Check if the second back addition is blocked on double streaks with one blocked side
-    if(*blockedState == 1 && streak == 2 & last2IsBlocked)
+    // Check if the second back addition is blocked on double streaks with one blocked side
+    if (*blockedState == 1 && streak == 2 & last2IsBlocked)
     {
         *blockedState = 2;
     }
