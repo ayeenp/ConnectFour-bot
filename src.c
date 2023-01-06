@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <time.h>
 
 #define EMPTY -1
 #define BLACK 0
@@ -16,6 +17,7 @@ int runRedGame();
 void minimizerTurn(int);
 void maximizerTurn(int);
 int findBestMove(int);
+int exceptionalMove(int);
 int miniMax(int, bool, int, int, int);
 int scoreOfBoard(int);
 int winningSide();
@@ -45,11 +47,11 @@ int main()
     else
     {
         mySide = RED;
-        MAX_DEPTH = 8;
+        MAX_DEPTH = 7;
     }
     clearBoard();
     int a = runGame(mySide);
-    printf("WIN: %d", a);
+    // printf("WIN: %d", a);
 
     return 0;
 }
@@ -67,7 +69,8 @@ int runBlackGame()
     while (1)
     {
         maximizerTurn(BLACK);
-        //printBoard();
+        printf("\n");
+        // printBoard();
         int winner = winningSide();
         if (winner == BLACK)
         {
@@ -117,7 +120,8 @@ int runRedGame()
             return DRAW;
         }
         maximizerTurn(RED);
-        //printBoard();
+        printf("\n");
+        // printBoard();
         winner = winningSide();
         if (winner == BLACK)
         {
@@ -143,13 +147,22 @@ void minimizerTurn(int side)
 
 void maximizerTurn(int side)
 {
+    // clock_t start, end;
+    // double cpu_time_used;
+    // start = clock();
     int moveIndex = findBestMove(side);
+    // end = clock();
+    // cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
+    // printf("Time Elapsed: %0.2llf\n", cpu_time_used);
     printf("%d", moveIndex + 1);
     board[findHeight(moveIndex)][moveIndex] = side;
 }
 
 int findBestMove(int side)
 {
+    int exMove = exceptionalMove(side);
+    if (exMove != -1)
+        return exMove;
     int bestMoveIndex = 0;
     int bestMoveScore = -1 * INF;
     int alpha = bestMoveScore;
@@ -170,6 +183,30 @@ int findBestMove(int side)
         }
     }
     return bestMoveIndex;
+}
+
+int exceptionalMove(int side)
+{
+    bool isOnlyCenterFilled = 1;
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            if (board[i][j] != EMPTY || board[i][6 - j] != EMPTY)
+            {
+                isOnlyCenterFilled = 0;
+                break;
+            }
+        }
+        if (!isOnlyCenterFilled)
+            break;
+    }
+    if (isOnlyCenterFilled)
+    {
+        if (board[4][3] == EMPTY)
+            return 3;
+    }
+    return -1;
 }
 
 int miniMax(int side, bool isMaximizer, int depth, int alpha, int beta)
